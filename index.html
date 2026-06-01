@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Canticle Cabinet — Rough Draft v0.1.8</title>
+  <title>Canticle Cabinet — Rough Draft v0.1.9</title>
 
   <meta name="theme-color" content="#fff1b8" />
   <meta name="apple-mobile-web-app-title" content="Canticle Cabinet" />
@@ -892,7 +892,7 @@
 
 
 
-    /* v0.1.8: VERY faux-3D / brighter pastel direction */
+    /* v0.1.9: VERY faux-3D / brighter pastel direction */
     :root {
       --ink: #26314e;
       --ink-deep: #17213d;
@@ -1210,7 +1210,7 @@
     }
   
 
-    /* v0.1.8: phone-first working layout; compact search/results; details open from title rows */
+    /* v0.1.9: phone-first working layout; compact search/results; details open from title rows */
     .compact-status {
       width: min(260px, 100%);
       padding: 14px;
@@ -1465,7 +1465,7 @@
 
 
 
-    /* v0.1.8: kill the wasted phone header space; no dashboard counts */
+    /* v0.1.9: kill the wasted phone header space; no dashboard counts */
     .app-header-tight {
       display: block;
       padding-bottom: 12px;
@@ -1594,7 +1594,7 @@
 
   
 
-    /* v0.1.8: Library screen is list-only; no large selected-title preview */
+    /* v0.1.9: Library screen is list-only; no large selected-title preview */
     .library-layout {
       display: block;
     }
@@ -1618,6 +1618,73 @@
       #libraryPage .panel.panel-pad {
         max-width: 860px;
         margin: 0 auto;
+      }
+    }
+
+  
+
+    /* v0.1.9: one top title/control window; edit only inside details */
+    .header-working-card {
+      grid-template-areas:
+        "copy icon"
+        "nav nav";
+    }
+
+    .header-nav-row {
+      grid-area: nav;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+      margin-top: 2px;
+    }
+
+    .header-nav-button {
+      min-height: 42px;
+      padding: 9px 12px;
+      flex: none;
+    }
+
+    .nav-card,
+    .mode-row.header-mode-row,
+    #catalogTools {
+      display: none !important;
+    }
+
+    .detail-primary-actions {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .detail-primary-actions .button-soft {
+      padding: 9px 13px;
+      min-height: 38px;
+    }
+
+    @media (max-width: 680px) {
+      .header-working-card {
+        grid-template-columns: minmax(0, 1fr) 56px;
+        grid-template-areas:
+          "copy icon"
+          "nav nav";
+        gap: 8px 10px;
+        padding-bottom: 12px;
+      }
+
+      .header-nav-row {
+        gap: 8px;
+      }
+
+      .header-nav-button {
+        min-height: 38px;
+        padding: 8px 9px;
+        font-size: 12px;
+      }
+
+      main {
+        padding-top: 0;
       }
     }
 
@@ -1760,25 +1827,20 @@
               <text x="130" y="148" text-anchor="middle" font-family="Georgia, serif" font-size="34" fill="#514183" opacity=".75">♪</text>
             </svg>
           </div>
-          <div class="version-under-sunflower">v0.1.8</div>
+          <div class="version-under-sunflower">v0.1.9</div>
           <div class="brand-copy">
             <div class="eyebrow">Bethany Church Music Library</div>
             <h1>Canticle Cabinet</h1>
             <p class="intro">Search first. Tap a title to open its working record.</p>
           </div>
-          <div class="mode-row header-mode-row" aria-label="Mode controls">
-            <button id="useModeButton" class="mode-button active" type="button">Use</button>
-            <button id="editorModeButton" class="mode-button" type="button">Edit</button>
+          <div class="header-nav-row" aria-label="Main app actions">
+            <button class="nav-tab header-nav-button active" type="button" data-page="libraryPage">Library</button>
+            <button class="nav-tab header-nav-button" type="button" data-page="addPage">Add / Catalog</button>
           </div>
         </section>
       </header>
       <main>
-        <nav class="nav-card" aria-label="App sections">
-          <button class="nav-tab active" type="button" data-page="libraryPage">Library</button>
-          <button class="nav-tab" type="button" data-page="addPage">Add / Catalog</button>
-        </nav>
-
-        <section id="libraryPage" class="page active">
+<section id="libraryPage" class="page active">
           <div class="library-layout">
             <aside class="panel panel-pad">
               <div class="section-title">
@@ -1800,14 +1862,6 @@
                 <span class="pill">Bells</span>
                 <span class="pill">Has Drive PDF</span>
                 <span class="pill">Not used recently</span>
-              </div>
-
-              <div id="catalogTools" class="catalog-tools">
-                <strong>Cataloging tools</strong>
-                <div class="tool-grid">
-                  <button class="button-primary" type="button" data-show-add>Add from photos</button>
-                  <button class="button-soft" type="button" data-show-add>Add usage</button>
-                </div>
               </div>
 
               <div id="titleResults" class="title-results"></div>
@@ -1928,7 +1982,7 @@
   </div>
 
   <script>
-    const VERSION = "Canticle Cabinet rough draft v0.1.8";
+    const VERSION = "Canticle Cabinet rough draft v0.1.9";
 
     const sampleTitles = [
       {
@@ -2149,9 +2203,6 @@
     }
 
     function renderMode() {
-      byId("useModeButton").classList.toggle("active", !state.editorMode);
-      byId("editorModeButton").classList.toggle("active", state.editorMode);
-      byId("catalogTools").classList.toggle("visible", state.editorMode);
       document.querySelectorAll(".editor-strip").forEach((el) => el.classList.toggle("visible", state.editorMode));
     }
 
@@ -2216,6 +2267,9 @@
             <h2>${escapeHtml(title.title)}</h2>
             ${title.altTitle ? `<p class="hint">Also known as ${escapeHtml(title.altTitle)}</p>` : ""}
             <div class="tag-row">${[...title.seasons, ...title.themes].map(pill).join("")}</div>
+            <div class="detail-primary-actions">
+              <button id="toggleEditToolsButton" class="button-soft" type="button">${state.editorMode ? "Done editing" : "Edit this title"}</button>
+            </div>
           </section>
           <aside class="usage-card">
             <strong>Recent usage</strong>
@@ -2281,6 +2335,10 @@
       });
 
       byId("viewUsageButton")?.addEventListener("click", openUsageModal);
+      byId("toggleEditToolsButton")?.addEventListener("click", () => {
+        state.editorMode = !state.editorMode;
+        renderDetails();
+      });
       document.querySelectorAll("[data-show-add]").forEach((button) => button.addEventListener("click", () => setActivePage("addPage")));
       document.querySelectorAll("[data-open-photo]").forEach((button) => button.addEventListener("click", () => openModal("photoModal")));
     }
@@ -2319,22 +2377,7 @@
     });
 
     byId("backToLibraryButton").addEventListener("click", () => setActivePage("libraryPage"));
-
-    byId("useModeButton").addEventListener("click", () => {
-      state.editorMode = false;
-      renderMode();
-      renderLibrary();
-      renderDetails();
-    });
-
-    byId("editorModeButton").addEventListener("click", () => {
-      state.editorMode = true;
-      renderMode();
-      renderLibrary();
-      renderDetails();
-    });
-
-    document.querySelectorAll(".nav-tab").forEach((button) => {
+document.querySelectorAll(".nav-tab").forEach((button) => {
       button.addEventListener("click", () => setActivePage(button.dataset.page));
     });
 
