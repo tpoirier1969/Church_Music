@@ -1,543 +1,602 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Canticle Cabinet — Local Cache Demo v0.2.0</title>
-  <meta name="theme-color" content="#fff1b8" />
-  <meta name="apple-mobile-web-app-title" content="Canticle Cabinet" />
-  <meta name="application-name" content="Canticle Cabinet" />
-  <style>
-    :root{
-      --ink:#17213d; --muted:#68758c; --pink:#ffe5f1; --lav:#ede9ff; --mint:#eafff4;
-      --butter:#fff0a8; --peach:#ffd2b3; --blue:#ddecff; --white:#fff;
-      --shadow: 0 18px 45px rgba(73,56,108,.18), 0 7px 0 rgba(126,98,164,.08);
-      --smallshadow: 0 10px 22px rgba(73,56,108,.12), inset 0 2px 0 rgba(255,255,255,.95), inset 0 -8px 16px rgba(90,65,125,.05);
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink);
-      background:
-        radial-gradient(circle at 8% 8%, rgba(255,239,150,.75), transparent 18rem),
-        radial-gradient(circle at 92% 10%, rgba(255,190,220,.55), transparent 20rem),
-        radial-gradient(circle at 80% 88%, rgba(190,245,220,.5), transparent 22rem),
-        linear-gradient(140deg,#fff8df,#ffeaf4 38%,#f1eeff 70%,#f0fff7);
-    }
-    .app{width:min(1120px,calc(100% - 24px)); margin:0 auto; padding:16px 0 26px;}
-    .shell{
-      border:2px solid rgba(255,255,255,.9); border-radius:38px; background:rgba(255,255,255,.48);
-      box-shadow:var(--shadow); overflow:hidden; backdrop-filter: blur(12px);
-    }
-    header{
-      margin:14px; padding:18px; border-radius:30px; background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(255,228,241,.86) 55%,rgba(237,233,255,.86));
-      box-shadow:var(--smallshadow); border:2px solid rgba(255,255,255,.9); position:relative; min-height:132px;
-    }
-    .eyebrow{font-size:12px; font-weight:900; letter-spacing:.22em; text-transform:uppercase; color:#b55697;}
-    h1{font-size:clamp(38px,7vw,64px); letter-spacing:-.07em; line-height:.9; margin:8px 0 0; text-shadow:0 2px 0 #fff, 0 9px 18px rgba(80,60,120,.14);}
-    .sun{position:absolute; right:16px; top:14px; width:78px; text-align:center;}
-    .sun svg{width:64px; height:64px; filter:drop-shadow(0 10px 12px rgba(91,57,25,.16));}
-    .version{display:block; margin-top:2px; font-size:10px; font-weight:900; color:#7a5a00; background:#fff5bf; border-radius:999px; padding:4px 6px; box-shadow:var(--smallshadow);}
-    .tabs{display:flex; gap:10px; margin-top:16px; max-width:520px;}
-    button{font:inherit; cursor:pointer;}
-    .tab,.btn{
-      border:2px solid rgba(255,255,255,.9); border-radius:20px; padding:12px 14px; font-weight:900; color:var(--ink);
-      background:linear-gradient(180deg,#fff,#eef6ff); box-shadow:var(--smallshadow);
-    }
-    .tab{flex:1}
-    .tab.active,.btn.primary{color:white; background:linear-gradient(180deg,#7282ff,#8356d3 62%,#4d367f);}
-    main{padding:0 14px 16px;}
-    .page{display:none}.page.active{display:block}
-    .panel{
-      border:2px solid rgba(255,255,255,.9); border-radius:30px; padding:18px; background:linear-gradient(145deg,rgba(255,255,255,.9),rgba(255,246,250,.82) 55%,rgba(245,243,255,.78));
-      box-shadow:var(--smallshadow); margin-bottom:14px;
-    }
-    h2{font-size:clamp(30px,6vw,48px); margin:0 0 12px; letter-spacing:-.055em; line-height:1;}
-    .searchWrap{position:relative;margin-top:10px}
-    input,select,textarea{
-      width:100%; border:2px solid rgba(255,255,255,.92); border-radius:22px; padding:13px 15px; font:inherit; color:var(--ink);
-      background:linear-gradient(180deg,#fff,rgba(255,255,255,.78)); box-shadow:inset 0 2px 0 #fff, 0 8px 16px rgba(65,50,99,.08);
-    }
-    textarea{min-height:88px; resize:vertical}
-    .clear{position:absolute; right:8px; top:50%; transform:translateY(-50%); width:34px; height:34px; border-radius:50%; padding:0; display:none}
-    .clear.visible{display:block}
-    .chips{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0}
-    .chip{font-size:13px; font-weight:900; padding:7px 11px; border-radius:999px; background:linear-gradient(180deg,#fff,#fff8c9); box-shadow:var(--smallshadow);}
-    .list{display:grid; gap:10px}
-    .row{
-      width:100%; text-align:left; border:2px solid rgba(255,255,255,.9); border-radius:24px; padding:12px;
-      background:linear-gradient(145deg,#fff,#ffe2ee 58%,#ece8ff); box-shadow:var(--smallshadow);
-    }
-    .rowTitle{font-size:22px; line-height:1.05; font-weight:950; letter-spacing:-.035em}
-    .rowSub{font-size:14px; color:var(--muted); font-weight:750; margin-top:3px}
-    .rowMeta{display:flex; justify-content:space-between; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap}
-    .mini{font-size:12px; color:#596271; font-weight:900; padding:6px 9px; border-radius:999px; background:rgba(255,255,255,.78); box-shadow:inset 0 1px 0 #fff}
-    .detailHead{display:flex; justify-content:space-between; gap:10px; align-items:flex-start}
-    .back{margin-bottom:12px}
-    .fieldGrid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px}
-    .field{border-radius:22px; padding:13px; background:rgba(255,255,255,.7); box-shadow:inset 0 1px 0 #fff}
-    .label{font-size:11px; font-weight:900; color:#b55697; letter-spacing:.08em; text-transform:uppercase}
-    .value{font-size:15px; font-weight:750; margin-top:5px}
-    .versionButtons{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
-    .versionBtn{padding:10px 12px; border-radius:18px; font-size:13px}
-    .versionBtn.active{color:white;background:linear-gradient(180deg,#7282ff,#8356d3 62%,#4d367f)}
-    .formGrid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
-    .full{grid-column:1/-1}
-    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
-    .notice{border-radius:22px; background:linear-gradient(145deg,#fff6c8,#ffe2d1); padding:13px; font-size:14px; color:#685000; box-shadow:var(--smallshadow)}
-    .tiny{font-size:12px;color:var(--muted);font-weight:700;line-height:1.4}
-    .danger{background:linear-gradient(180deg,#fff,#ffd7e2); color:#8a1f3d}
-    .thumb{
-      width:74px;height:74px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(145deg,#fff7c8,#ffd36e);font-size:32px;
-      box-shadow:var(--smallshadow); border:2px solid rgba(255,255,255,.9);
-    }
-    .modalBackdrop{position:fixed;inset:0;background:rgba(30,24,48,.42);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
-    .modalBackdrop.visible{display:flex}
-    .modal{max-width:680px;width:100%;border-radius:30px;background:white;padding:18px;box-shadow:0 30px 80px rgba(0,0,0,.28)}
-    .modalImg{height:360px;border-radius:22px;background:linear-gradient(145deg,#fff,#ffd8b8);display:grid;place-items:center;font-size:80px}
-    @media(max-width:700px){
-      .app{width:100%;padding:0}.shell{border-radius:0;border-left:0;border-right:0}
-      header{margin:10px;padding:14px;min-height:122px}.sun{width:68px;right:12px}.sun svg{width:54px;height:54px}
-      h1{font-size:43px;padding-right:75px}.tabs{padding-right:0}.panel{padding:14px;border-radius:24px}
-      .fieldGrid,.formGrid{grid-template-columns:1fr}
-      .rowTitle{font-size:21px}
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.1</title>
+<meta name="theme-color" content="#fff1b8">
+<meta name="apple-mobile-web-app-title" content="Canticle Cabinet">
+<meta name="application-name" content="Canticle Cabinet">
+<link rel="apple-touch-icon" sizes="180x180" href="">
+<link rel="icon" href="">
+<style>
+:root {
+  --ink:#25304a; --muted:#677086; --deep:#17213d; --cream:#fff8df;
+  --rose:#ffe4ef; --lilac:#efecff; --mint:#e9fff3; --butter:#ffe88a;
+  --peach:#ffd0a8; --sky:#dceeff; --line:rgba(72,58,94,.16);
+  --shadow:0 18px 42px rgba(52,42,82,.14), inset 0 1px 0 rgba(255,255,255,.9);
+  --radius:26px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(circle at 8% 5%, rgba(255,232,138,.5), transparent 16rem),
+    radial-gradient(circle at 90% 6%, rgba(255,196,222,.45), transparent 18rem),
+    radial-gradient(circle at 80% 90%, rgba(198,245,222,.42), transparent 20rem),
+    linear-gradient(135deg,#fff8df,#ffeaf3 38%,#efecff 70%,#edfff5);
+}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+.app{width:min(1120px,calc(100% - 20px)); margin:0 auto; padding:12px 0 24px}
+.shell{border-radius:34px; border:2px solid rgba(255,255,255,.78); background:rgba(255,255,255,.48); box-shadow:0 28px 70px rgba(42,34,70,.18); overflow:hidden}
+.header{position:relative; padding:14px; border-bottom:1px solid var(--line); background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,239,248,.72))}
+.brand-row{display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center}
+.eyebrow{font-size:11px; text-transform:uppercase; letter-spacing:.18em; font-weight:900; color:#a65386}
+h1{margin:3px 0 0; font-size:clamp(32px,8vw,56px); letter-spacing:-.065em; line-height:.9; color:var(--deep); text-shadow:0 2px 0 rgba(255,255,255,.85)}
+.icon-wrap{text-align:center; min-width:82px}
+.icon{width:66px; height:66px; border-radius:20px; filter:drop-shadow(0 10px 14px rgba(83,54,19,.16))}
+.version{font-size:10px; color:var(--muted); font-weight:800; margin-top:2px}
+.tabs{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px}
+.tab,.btn{border:2px solid rgba(255,255,255,.82); border-radius:18px; padding:11px 12px; font-weight:900; color:var(--deep); background:linear-gradient(180deg,#fff,#f2f0ff); box-shadow:0 10px 20px rgba(52,42,82,.10), inset 0 1px 0 rgba(255,255,255,.9)}
+.tab.active,.btn.primary{background:linear-gradient(180deg,#ffe98d,#ffc979); color:#403000}
+.main{padding:14px}
+.page{display:none} .page.active{display:block}
+.card{border-radius:var(--radius); border:2px solid rgba(255,255,255,.8); background:rgba(255,255,255,.62); box-shadow:var(--shadow); padding:14px; margin-bottom:12px}
+label{display:block; margin:0 0 6px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:900; color:#a65386}
+input,textarea,select{width:100%; border:2px solid rgba(255,255,255,.82); border-radius:18px; padding:12px; outline:none; background:rgba(255,255,255,.82); color:var(--deep); box-shadow:inset 0 1px 0 rgba(255,255,255,.92)}
+textarea{min-height:86px; resize:vertical}
+.search-wrap{position:relative}
+.clear{position:absolute; right:8px; top:50%; transform:translateY(-50%); width:34px; height:34px; border-radius:999px; border:0; background:#fff; font-size:20px; font-weight:900; color:#8d5776; box-shadow:0 6px 12px rgba(52,42,82,.12)}
+.hidden{display:none!important}
+.list{display:grid; gap:8px; margin-top:10px}
+.row{width:100%; text-align:left; border:2px solid rgba(255,255,255,.8); border-radius:20px; padding:10px 11px; background:linear-gradient(145deg,rgba(255,255,255,.9),rgba(244,242,255,.75)); box-shadow:0 10px 18px rgba(52,42,82,.10)}
+.row-title{font-weight:1000; color:var(--deep); font-size:16px; line-height:1.1}
+.row-meta{font-size:12px; color:var(--muted); margin-top:4px}
+.pills{display:flex; gap:5px; flex-wrap:wrap; margin-top:6px}
+.pill{font-size:11px; font-weight:850; padding:4px 7px; border-radius:999px; background:#fff8ce; color:#5f5362}
+.grid{display:grid; gap:10px}
+@media(min-width:760px){.grid.two{grid-template-columns:1fr 1fr} .grid.three{grid-template-columns:repeat(3,1fr)}}
+.detail-head{display:flex; justify-content:space-between; gap:12px; align-items:flex-start}
+.back{margin-bottom:10px}
+.big-title{font-size:30px; font-weight:1000; letter-spacing:-.05em; color:var(--deep); margin:0 0 4px}
+.small{font-size:12px; color:var(--muted)}
+.thumb{width:74px; height:74px; border-radius:18px; object-fit:cover; border:2px solid #fff; box-shadow:0 10px 18px rgba(52,42,82,.14); background:#fff7d0}
+.actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.ocr-status{font-size:13px; color:var(--muted); line-height:1.45}
+.progress{height:10px; border-radius:999px; background:rgba(255,255,255,.7); overflow:hidden; margin-top:8px}
+.progress > div{height:100%; width:0%; background:linear-gradient(90deg,#ffe98d,#ff9ac4,#9de6c0); transition:width .2s ease}
+.modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:12px; background:rgba(25,22,40,.5); z-index:20}
+.modal.show{display:flex}
+.modal-box{max-width:min(900px,96vw); max-height:90vh; overflow:auto; border-radius:26px; padding:12px; background:#fff; box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.modal-img{max-width:100%; height:auto; display:block; border-radius:18px}
+.footer{font-size:11px; color:var(--muted); text-align:center; padding:10px 14px 16px}
+.warn{background:#fff8d0; border-color:#fff1a0}
+</style>
 </head>
 <body>
-<div class="app"><div class="shell">
-<header>
-  <div class="eyebrow">Bethany Church Music Library</div>
-  <h1>Canticle Cabinet</h1>
-  <div class="sun" aria-hidden="true">
-    <svg viewBox="0 0 120 120">
-      <g transform="translate(60 60)">
-        <g fill="#ffd842">
-          <ellipse rx="13" ry="31" transform="rotate(0) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(30) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(60) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(90) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(120) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(150) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(180) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(210) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(240) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(270) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(300) translate(0 -34)"/>
-          <ellipse rx="13" ry="31" transform="rotate(330) translate(0 -34)"/>
-        </g>
-        <circle r="23" fill="#8b5425"/>
-        <circle r="13" fill="#5e351e"/>
-        <g fill="#ffd66f" opacity=".85"><circle r="2" cx="-8" cy="-5"/><circle r="2" cx="0" cy="-9"/><circle r="2" cx="8" cy="-4"/><circle r="2" cx="-3" cy="5"/><circle r="2" cx="7" cy="7"/></g>
-      </g>
-      <ellipse cx="37" cy="92" rx="18" ry="8" fill="#6fbd69" transform="rotate(-20 37 92)"/>
-      <ellipse cx="82" cy="92" rx="18" ry="8" fill="#5da96a" transform="rotate(20 82 92)"/>
-    </svg>
-    <span class="version">v0.2.0</span>
-  </div>
-  <div class="tabs">
-    <button class="tab active" data-page="libraryPage">Library</button>
-    <button class="tab" data-page="addPage">Add / Catalog</button>
-  </div>
-</header>
-
-<main>
-  <section id="libraryPage" class="page active">
-    <div class="panel">
-      <h2>Library</h2>
-      <div class="searchWrap">
-        <input id="searchInput" placeholder="Title, season, voicing, composer, location..." autocomplete="off">
-        <button id="clearSearch" class="btn clear" aria-label="Clear search">×</button>
-      </div>
-      <div class="chips"><span class="chip">Advent</span><span class="chip">SATB</span><span class="chip">Bells</span><span class="chip">Has PDF</span></div>
-      <div id="list" class="list"></div>
-    </div>
-  </section>
-
-  <section id="detailPage" class="page">
-    <div class="panel">
-      <button id="backBtn" class="btn back">← Library</button>
-      <div id="detail"></div>
-    </div>
-  </section>
-
-  <section id="addPage" class="page">
-    <div class="panel">
-      <h2>Add / Catalog</h2>
-      <p class="tiny">Dummy add/import saves to this phone/browser only using localStorage. Nothing goes to Supabase or Google Drive yet.</p>
-      <div class="notice"><strong>Photo/OCR review idea:</strong> the real app will extract fields from a photo. For this demo, use the buttons below to fake that workflow.</div>
-      <div class="actions">
-        <button id="sampleImportBtn" class="btn primary">Dummy import: Spiritual Medley</button>
-        <button id="resetBtn" class="btn danger">Reset demo cache</button>
-        <button id="exportBtn" class="btn">Export cache JSON</button>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Add manually</h2>
-      <form id="addForm">
-        <div class="formGrid">
-          <label>Title<input name="title" required placeholder="e.g., Spiritual Medley"></label>
-          <label>Alternate title<input name="altTitle" placeholder=""></label>
-          <label>Setting / version label<input name="label" required placeholder="e.g., SAB Choral Octavo"></label>
-          <label>Voicing<input name="voicing" placeholder="SAB"></label>
-          <label>Accompaniment<input name="accompaniment" placeholder="Piano"></label>
-          <label>Arranger<input name="arranger" placeholder="Ben Parry"></label>
-          <label>Composer / source<input name="composer" placeholder="Traditional"></label>
-          <label>Publisher<input name="publisher" placeholder="Faber Music / Alfred Music"></label>
-          <label>Copies<input name="copies" type="number" min="0" placeholder="0"></label>
-          <label>Location<input name="location" placeholder="Choir Room > Cabinet 1"></label>
-          <label class="full">Tags<input name="tags" placeholder="Spiritual/Gospel, General, Children"></label>
-          <label class="full">Notes<textarea name="notes" placeholder="Notes Donna might want later..."></textarea></label>
+<div class="app">
+  <div class="shell">
+    <header class="header">
+      <div class="brand-row">
+        <div>
+          <div class="eyebrow">Bethany Church Music Library</div>
+          <h1>Canticle Cabinet</h1>
         </div>
-        <div class="actions">
-          <button class="btn primary" type="submit">Save to phone cache</button>
-          <button class="btn" type="button" id="prefillBtn">Prefill sample</button>
+        <div class="icon-wrap">
+          <div class='icon' style='display:grid;place-items:center;background:#ffe88a;font-size:38px'>🌻</div>
+          <div class="version">v0.2.1 OCR demo</div>
         </div>
-      </form>
-    </div>
-  </section>
-</main>
-</div></div>
+      </div>
+      <div class="tabs">
+        <button id="libraryTab" class="tab active">Library</button>
+        <button id="addTab" class="tab">Add / Catalog</button>
+      </div>
+    </header>
 
-<div id="imageModal" class="modalBackdrop">
-  <div class="modal">
-    <div class="actions" style="justify-content:space-between;margin-top:0"><strong>Captured image preview</strong><button id="closeModal" class="btn">Close</button></div>
-    <div class="modalImg">🎼</div>
-    <p class="tiny">In the real app this would show the full captured cover/title-page image. The thumbnail stays small in the review form unless tapped.</p>
+    <main class="main">
+      <section id="libraryPage" class="page active">
+        <div class="card">
+          <label for="searchInput">Search</label>
+          <div class="search-wrap">
+            <input id="searchInput" placeholder="Title, voicing, arranger, publisher, tag, location...">
+            <button id="clearSearch" class="clear hidden" aria-label="Clear search">×</button>
+          </div>
+          <div id="titleList" class="list"></div>
+        </div>
+      </section>
+
+      <section id="detailPage" class="page">
+        <button id="backToLibrary" class="btn back">← Library</button>
+        <div id="detailContent"></div>
+      </section>
+
+      <section id="addPage" class="page">
+        <div class="card warn">
+          <strong>Local test only.</strong>
+          <div class="small">Records save to this phone/browser cache. They do not go to Supabase or Google Drive yet. OCR uses Tesseract.js from a CDN, so this demo needs internet for OCR.</div>
+        </div>
+
+        <div class="card">
+          <div class="grid two">
+            <div>
+              <label for="photoInput">Photo / OCR test</label>
+              <input id="photoInput" type="file" accept="image/*" capture="environment">
+            </div>
+            <div>
+              <label>Image preview</label>
+              <button id="thumbButton" class="btn" type="button">No image yet</button>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="runOcr" class="btn primary" type="button">Run OCR from photo</button>
+            <button id="fillSample" class="btn" type="button">Fill sample: Spiritual Medley</button>
+            <button id="clearForm" class="btn" type="button">Clear form</button>
+          </div>
+          <div id="ocrStatus" class="ocr-status">Choose/take a photo, then run OCR. You can also type fields manually.</div>
+          <div class="progress"><div id="ocrProgress"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="grid two">
+            <div>
+              <label for="titleField">Title</label>
+              <input id="titleField" placeholder="Example: Spiritual Medley">
+            </div>
+            <div>
+              <label for="versionField">Setting / version label</label>
+              <input id="versionField" placeholder="Example: SAB Choral Octavo">
+            </div>
+            <div>
+              <label for="voicingField">Voicing / ensemble</label>
+              <input id="voicingField" placeholder="SATB, SAB, SA, Bells...">
+            </div>
+            <div>
+              <label for="accompanimentField">Accompaniment</label>
+              <input id="accompanimentField" placeholder="Piano, organ, a cappella...">
+            </div>
+            <div>
+              <label for="arrangerField">Arranger</label>
+              <input id="arrangerField" placeholder="Arranger">
+            </div>
+            <div>
+              <label for="composerField">Composer / source</label>
+              <input id="composerField" placeholder="Composer, traditional, etc.">
+            </div>
+            <div>
+              <label for="publisherField">Publisher</label>
+              <input id="publisherField" placeholder="Publisher">
+            </div>
+            <div>
+              <label for="categoryField">Category</label>
+              <input id="categoryField" placeholder="Choral Octavo, Handbells...">
+            </div>
+            <div>
+              <label for="copiesField">Copies</label>
+              <input id="copiesField" type="number" min="0" placeholder="0">
+            </div>
+            <div>
+              <label for="locationField">Location</label>
+              <input id="locationField" placeholder="Cabinet / drawer / folder">
+            </div>
+            <div class="grid" style="grid-column:1/-1">
+              <label for="tagsField">Tags, comma-separated</label>
+              <input id="tagsField" placeholder="Advent, Children, Spiritual/Gospel">
+            </div>
+            <div class="grid" style="grid-column:1/-1">
+              <label for="notesField">Notes</label>
+              <textarea id="notesField" placeholder="Anything Donna wants to remember."></textarea>
+            </div>
+            <div class="grid" style="grid-column:1/-1">
+              <label for="ocrText">Raw OCR text</label>
+              <textarea id="ocrText" placeholder="OCR text will appear here so you can see what it saw."></textarea>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="saveRecord" class="btn primary" type="button">Save to phone cache</button>
+            <button id="exportJson" class="btn" type="button">Export JSON</button>
+            <button id="resetCache" class="btn" type="button">Reset demo cache</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div class="footer">Canticle Cabinet local cache/OCR demo. This is a workflow test, not the live database.</div>
   </div>
 </div>
 
+<div id="imageModal" class="modal">
+  <div class="modal-box">
+    <div class="actions" style="justify-content:flex-end;margin-top:0"><button id="closeImage" class="btn">Close</button></div>
+    <img id="fullImage" class="modal-img" alt="Full captured image">
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-(() => {
-  const VERSION = "Canticle Cabinet local cache demo v0.2.0";
-  const STORAGE_KEY = "canticleCabinetLocalCache_v020";
+const VERSION = "v0.2.1";
+const STORAGE_KEY = "canticleCabinetLocalCache_v021";
+const $ = (id) => document.getElementById(id);
 
-  const sampleTitles = [
-    {
-      id: "beautiful-savior",
-      title: "Beautiful Savior",
-      altTitle: "Fairest Lord Jesus",
-      composer: "Traditional / Silesian folk tune",
-      seasons: ["General", "Epiphany", "Easter"],
-      themes: ["Praise", "Christ", "Creation"],
-      lastUsed: ["2025-12-24", "2025-04-20", "2024-06-09"],
-      versions: [
-        { id: "beautiful-savior-satb", label: "SATB Anthem", voicing: "SATB", accompaniment: "Piano or organ", arranger: "F. Melius Christiansen", composer: "", publisher: "Augsburg Fortress", copies: 42, location: "Choir Room > Cabinet 2 > Drawer 1", tags:["General","SATB"], notes:"Strong standard version." },
-        { id: "beautiful-savior-sa", label: "SA Version", voicing: "SA", accompaniment: "Piano", arranger: "Unknown", composer: "", publisher: "Concordia", copies: 24, location: "Choir Room > Cabinet 1 > Drawer 3", tags:["General","SA"], notes:"Small choir option. Needs review." }
-      ]
-    },
-    {
-      id: "come-thou-long-expected-jesus",
-      title: "Come, Thou Long-Expected Jesus",
-      altTitle: "",
-      composer: "Charles Wesley / Hyfrydol",
-      seasons: ["Advent"],
-      themes: ["Hope", "Incarnation"],
-      lastUsed: ["2025-12-07", "2023-12-03"],
-      versions: [
-        { id: "come-thou-satb", label: "SATB Anthem", voicing: "SATB", accompaniment: "Piano", arranger: "Mark Hayes", composer:"", publisher:"Lorenz", copies: 36, location: "Choir Room > Cabinet 3 > Drawer 1", tags:["Advent","SATB"], notes:"Good opener." }
-      ]
-    }
-  ];
-
-  let titles = loadCache();
-  let currentTitleId = titles[0]?.id || null;
-  let currentVersionId = titles[0]?.versions?.[0]?.id || null;
-  let currentPage = "libraryPage";
-
-  const $ = (id) => document.getElementById(id);
-
-  function slugify(text){
-    return String(text).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g,"") || "item";
+const seedData = [
+  {
+    id: "title-beautiful-savior",
+    title: "Beautiful Savior",
+    tags: ["General","Epiphany","Praise"],
+    lastUsed: ["2025-12-24"],
+    versions: [
+      { id:"ver-bs-satb", label:"SATB Anthem", voicing:"SATB", accompaniment:"Piano or organ", arranger:"F. Melius Christiansen", composer:"Traditional", publisher:"Augsburg Fortress", category:"Anthem / Octavo", copies:42, location:"Choir Room > Cabinet 2 > Drawer 1", notes:"Sample record.", thumbnail:null }
+    ]
+  },
+  {
+    id: "title-this-little-light",
+    title: "This Little Light of Mine",
+    tags: ["General","Epiphany","Children"],
+    lastUsed: ["2025-01-12"],
+    versions: [
+      { id:"ver-light-unison", label:"Children / Unison", voicing:"Unison children", accompaniment:"Piano / guitar optional", arranger:"Traditional", composer:"Traditional spiritual", publisher:"Unknown", category:"Children's Choir", copies:18, location:"Choir Room > Cabinet 4 > Drawer 2", notes:"Duplicate Children tag is intentionally fixed here.", thumbnail:null }
+    ]
   }
+];
 
-  function titleCaseTag(tag){
-    const special = { satb:"SATB", sab:"SAB", sa:"SA", ssa:"SSA", ttb:"TTB", pdf:"PDF" };
-    const raw = String(tag).trim().replace(/\s+/g," ");
-    const key = raw.toLowerCase();
-    if (special[key]) return special[key];
-    return raw.split(" ").map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : "").join(" ");
+let catalog = loadCatalog();
+let selectedTitleId = catalog[0]?.id || null;
+let selectedVersionId = catalog[0]?.versions?.[0]?.id || null;
+let currentImageData = null;
+
+function uid(prefix) {
+  return prefix + "-" + Math.random().toString(36).slice(2,9) + "-" + Date.now().toString(36);
+}
+
+function normalizeTag(tag) {
+  return (tag || "").trim().replace(/\s+/g, " ").replace(/^\w/, c => c.toUpperCase());
+}
+
+function dedupeTags(tags) {
+  const map = new Map();
+  tags.map(normalizeTag).filter(Boolean).forEach(t => map.set(t.toLowerCase(), t));
+  return Array.from(map.values());
+}
+
+function loadCatalog() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(seedData));
+  return structuredClone(seedData);
+}
+
+function saveCatalog() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(catalog));
+}
+
+function showPage(which) {
+  for (const id of ["libraryPage","detailPage","addPage"]) $(id).classList.remove("active");
+  if (which === "library") $("libraryPage").classList.add("active");
+  if (which === "detail") $("detailPage").classList.add("active");
+  if (which === "add") $("addPage").classList.add("active");
+  $("libraryTab").classList.toggle("active", which === "library");
+  $("addTab").classList.toggle("active", which === "add");
+}
+
+function textHaystack(title) {
+  return [
+    title.title, ...(title.tags || []),
+    ...title.versions.flatMap(v => [v.label,v.voicing,v.accompaniment,v.arranger,v.composer,v.publisher,v.category,v.location,v.notes])
+  ].join(" ").toLowerCase();
+}
+
+function renderList() {
+  const q = $("searchInput").value.trim().toLowerCase();
+  $("clearSearch").classList.toggle("hidden", !q);
+  const list = $("titleList");
+  list.innerHTML = "";
+  const results = catalog.filter(t => !q || textHaystack(t).includes(q));
+  if (!results.length) {
+    list.innerHTML = '<div class="small">No matching titles yet.</div>';
+    return;
   }
-
-  function normalizeTags(input){
-    const items = Array.isArray(input) ? input : String(input || "").split(",");
-    const seen = new Set();
-    const out = [];
-    items.forEach(item => {
-      const clean = titleCaseTag(item);
-      const key = clean.toLowerCase();
-      if (clean && !seen.has(key)) { seen.add(key); out.push(clean); }
-    });
-    return out;
-  }
-
-  function loadCache(){
-    try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) return JSON.parse(raw);
-    }catch(e){ console.warn("Bad cache, loading samples", e); }
-    return JSON.parse(JSON.stringify(sampleTitles));
-  }
-
-  function saveCache(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(titles));
-  }
-
-  function resetCache(){
-    titles = JSON.parse(JSON.stringify(sampleTitles));
-    currentTitleId = titles[0]?.id || null;
-    currentVersionId = titles[0]?.versions?.[0]?.id || null;
-    saveCache();
-    render();
-    showPage("libraryPage");
-  }
-
-  function formatDate(dateString){
-    if(!dateString) return "Not used yet";
-    const date = new Date(dateString + "T12:00:00");
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  }
-
-  function getCurrent(){
-    const title = titles.find(t => t.id === currentTitleId) || titles[0];
-    const version = title?.versions?.find(v => v.id === currentVersionId) || title?.versions?.[0];
-    return { title, version };
-  }
-
-  function showPage(pageId){
-    currentPage = pageId;
-    document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === pageId));
-    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.page === pageId));
-    window.scrollTo({top:0, behavior:"smooth"});
-  }
-
-  function renderList(){
-    const q = $("searchInput").value.trim().toLowerCase();
-    $("clearSearch").classList.toggle("visible", Boolean(q));
-    const filtered = titles.filter(t => {
-      const hay = [
-        t.title, t.altTitle, t.composer, ...(t.seasons||[]), ...(t.themes||[]),
-        ...t.versions.flatMap(v => [v.label, v.voicing, v.accompaniment, v.arranger, v.composer, v.publisher, v.location, ...(v.tags||[])])
-      ].join(" ").toLowerCase();
-      return !q || hay.includes(q);
-    });
-
-    $("list").innerHTML = filtered.map(t => {
-      const tags = [...new Set(t.versions.flatMap(v => (v.tags || [])))].slice(0,4);
-      const versions = t.versions.map(v => v.label).slice(0,3);
-      return `<button class="row" data-title-id="${t.id}">
-        <div class="rowMeta" style="margin-top:0">
-          <div>
-            <div class="rowTitle">${escapeHtml(t.title)}</div>
-            ${t.altTitle ? `<div class="rowSub">${escapeHtml(t.altTitle)}</div>` : ""}
-          </div>
-          <span class="rowSub">${formatDate(t.lastUsed?.[0])}</span>
-        </div>
-        <div class="rowMeta">
-          <div>${versions.map(v => `<span class="mini">${escapeHtml(v)}</span>`).join(" ")}</div>
-          <div>${tags.map(tag => `<span class="mini">${escapeHtml(tag)}</span>`).join(" ")}</div>
-        </div>
-      </button>`;
-    }).join("") || `<p class="tiny">No matching titles found.</p>`;
-
-    document.querySelectorAll("[data-title-id]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const title = titles.find(t => t.id === btn.dataset.titleId);
-        currentTitleId = title.id;
-        currentVersionId = title.versions[0]?.id || null;
-        renderDetail();
-        showPage("detailPage");
-      });
-    });
-  }
-
-  function renderDetail(){
-    const { title, version } = getCurrent();
-    if(!title || !version){ $("detail").innerHTML = "<p>No record selected.</p>"; return; }
-    $("detail").innerHTML = `
-      <div class="detailHead">
-        <div>
-          <div class="eyebrow">Working record</div>
-          <h2>${escapeHtml(title.title)}</h2>
-          ${title.altTitle ? `<div class="rowSub">${escapeHtml(title.altTitle)}</div>` : ""}
-        </div>
-        <button class="btn" id="editThisTitleBtn">Edit this title</button>
-      </div>
-      ${title.versions.length > 1 ? `<div class="versionButtons">
-        ${title.versions.map(v => `<button class="btn versionBtn ${v.id === version.id ? "active" : ""}" data-version-id="${v.id}">${escapeHtml(v.label)}</button>`).join("")}
-      </div>` : ""}
-      <div class="fieldGrid">
-        <div class="field"><div class="label">Setting / version</div><div class="value">${escapeHtml(version.label)}</div></div>
-        <div class="field"><div class="label">Voicing</div><div class="value">${escapeHtml(version.voicing)}</div></div>
-        <div class="field"><div class="label">Accompaniment</div><div class="value">${escapeHtml(version.accompaniment)}</div></div>
-        <div class="field"><div class="label">Arranger</div><div class="value">${escapeHtml(version.arranger)}</div></div>
-        <div class="field"><div class="label">Composer / source</div><div class="value">${escapeHtml(version.composer || title.composer)}</div></div>
-        <div class="field"><div class="label">Publisher</div><div class="value">${escapeHtml(version.publisher)}</div></div>
-        <div class="field"><div class="label">Copies</div><div class="value">${escapeHtml(version.copies)}</div></div>
-        <div class="field"><div class="label">Last used</div><div class="value">${formatDate(title.lastUsed?.[0])}</div></div>
-        <div class="field full"><div class="label">Location</div><div class="value">${escapeHtml(version.location)}</div></div>
-        <div class="field full"><div class="label">Tags</div><div class="value">${(version.tags||[]).map(t => `<span class="chip">${escapeHtml(t)}</span>`).join(" ") || "—"}</div></div>
-        <div class="field full"><div class="label">Notes</div><div class="value">${escapeHtml(version.notes)}</div></div>
-      </div>
-      <div class="actions">
-        <button class="btn primary" id="addUsageBtn">Add dummy usage</button>
-        <button class="btn" id="thumbBtn"><span class="thumb">🎼</span></button>
-      </div>
-      <p class="tiny">Thumbnail opens full image preview. In this demo it is symbolic; real photos come later.</p>
+  for (const title of results) {
+    const versions = title.versions || [];
+    const row = document.createElement("button");
+    row.className = "row";
+    row.type = "button";
+    row.innerHTML = `
+      <div class="row-title">${escapeHtml(title.title)}</div>
+      <div class="row-meta">${versions.map(v => escapeHtml(v.label || v.voicing || "Setting")).join(" · ")}</div>
+      <div class="pills">${(title.tags || []).slice(0,5).map(t => `<span class="pill">${escapeHtml(t)}</span>`).join("")}</div>
     `;
-    document.querySelectorAll("[data-version-id]").forEach(btn => {
-      btn.addEventListener("click", () => { currentVersionId = btn.dataset.versionId; renderDetail(); });
+    row.addEventListener("click", () => {
+      selectedTitleId = title.id;
+      selectedVersionId = versions[0]?.id || null;
+      renderDetail();
+      showPage("detail");
     });
-    $("editThisTitleBtn").addEventListener("click", () => fillFormFromCurrent());
-    $("addUsageBtn").addEventListener("click", addDummyUsage);
-    $("thumbBtn").addEventListener("click", () => $("imageModal").classList.add("visible"));
+    list.appendChild(row);
+  }
+}
+
+function renderDetail() {
+  const title = catalog.find(t => t.id === selectedTitleId) || catalog[0];
+  if (!title) { $("detailContent").innerHTML = ""; return; }
+  const version = title.versions.find(v => v.id === selectedVersionId) || title.versions[0];
+  selectedTitleId = title.id;
+  selectedVersionId = version?.id;
+  const versionButtons = title.versions.length > 1 ? `
+    <div class="card">
+      <label>Choose setting/version</label>
+      <div class="actions">${title.versions.map(v => `<button class="btn ${v.id===selectedVersionId?'primary':''}" data-version="${v.id}">${escapeHtml(v.label || v.voicing || "Setting")}</button>`).join("")}</div>
+    </div>` : "";
+  $("detailContent").innerHTML = `
+    <div class="card">
+      <div class="detail-head">
+        <div>
+          <div class="big-title">${escapeHtml(title.title)}</div>
+          <div class="small">${(title.tags || []).map(escapeHtml).join(" · ")}</div>
+        </div>
+        ${version?.thumbnail ? `<button class="btn" id="detailThumbButton"><img class="thumb" src="${version.thumbnail}" alt="Thumbnail"></button>` : ""}
+      </div>
+    </div>
+    ${versionButtons}
+    <div class="card">
+      <div class="grid two">
+        ${field("Setting/version", version?.label)}
+        ${field("Voicing", version?.voicing)}
+        ${field("Accompaniment", version?.accompaniment)}
+        ${field("Arranger", version?.arranger)}
+        ${field("Composer/source", version?.composer)}
+        ${field("Publisher", version?.publisher)}
+        ${field("Category", version?.category)}
+        ${field("Copies", version?.copies)}
+      </div>
+    </div>
+    <div class="card"><label>Location</label><div class="big-title" style="font-size:23px">${escapeHtml(version?.location || "—")}</div></div>
+    <div class="card"><label>Notes</label><div class="small">${escapeHtml(version?.notes || "—")}</div><div class="actions"><button class="btn primary">Edit this title</button><button class="btn">Add usage</button></div></div>
+  `;
+  $("detailContent").querySelectorAll("[data-version]").forEach(btn => btn.addEventListener("click", () => {
+    selectedVersionId = btn.dataset.version; renderDetail();
+  }));
+  const detailThumb = $("detailThumbButton");
+  if (detailThumb && version?.thumbnail) detailThumb.addEventListener("click", () => openImage(version.thumbnail));
+}
+
+function field(label, value) {
+  return `<div><label>${escapeHtml(label)}</label><div>${escapeHtml(value === undefined || value === null || value === "" ? "—" : String(value))}</div></div>`;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+}
+
+function getFormData() {
+  return {
+    title: $("titleField").value.trim(),
+    version: $("versionField").value.trim(),
+    voicing: $("voicingField").value.trim(),
+    accompaniment: $("accompanimentField").value.trim(),
+    arranger: $("arrangerField").value.trim(),
+    composer: $("composerField").value.trim(),
+    publisher: $("publisherField").value.trim(),
+    category: $("categoryField").value.trim(),
+    copies: Number($("copiesField").value || 0),
+    location: $("locationField").value.trim(),
+    tags: dedupeTags($("tagsField").value.split(",")),
+    notes: $("notesField").value.trim()
+  };
+}
+
+function setFormData(data) {
+  $("titleField").value = data.title || "";
+  $("versionField").value = data.version || "";
+  $("voicingField").value = data.voicing || "";
+  $("accompanimentField").value = data.accompaniment || "";
+  $("arrangerField").value = data.arranger || "";
+  $("composerField").value = data.composer || "";
+  $("publisherField").value = data.publisher || "";
+  $("categoryField").value = data.category || "";
+  $("copiesField").value = data.copies || "";
+  $("locationField").value = data.location || "";
+  $("tagsField").value = (data.tags || []).join(", ");
+  $("notesField").value = data.notes || "";
+}
+
+function clearForm() {
+  setFormData({});
+  $("ocrText").value = "";
+  currentImageData = null;
+  $("thumbButton").textContent = "No image yet";
+  $("photoInput").value = "";
+  $("ocrStatus").textContent = "Choose/take a photo, then run OCR. You can also type fields manually.";
+  $("ocrProgress").style.width = "0%";
+}
+
+function saveForm() {
+  const data = getFormData();
+  if (!data.title) { alert("Title is required."); return; }
+  let title = catalog.find(t => t.title.trim().toLowerCase() === data.title.toLowerCase());
+  if (!title) {
+    title = { id: uid("title"), title: data.title, tags: data.tags, lastUsed: [], versions: [] };
+    catalog.push(title);
+  } else {
+    title.tags = dedupeTags([...(title.tags || []), ...data.tags]);
+  }
+  title.versions.push({
+    id: uid("ver"),
+    label: data.version || data.voicing || "Unlabeled setting",
+    voicing: data.voicing,
+    accompaniment: data.accompaniment,
+    arranger: data.arranger,
+    composer: data.composer,
+    publisher: data.publisher,
+    category: data.category,
+    copies: data.copies,
+    location: data.location,
+    notes: data.notes,
+    thumbnail: currentImageData,
+    reviewStatus: "Needs review",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: "local demo user"
+  });
+  saveCatalog();
+  selectedTitleId = title.id;
+  selectedVersionId = title.versions.at(-1).id;
+  renderList();
+  renderDetail();
+  showPage("detail");
+}
+
+function fillSample() {
+  setFormData({
+    title: "Spiritual Medley",
+    version: "SAB Choral Octavo",
+    voicing: "SAB",
+    accompaniment: "Piano",
+    arranger: "Ben Parry",
+    composer: "Traditional",
+    publisher: "Faber Music / Alfred Music",
+    category: "Choral Octavo",
+    copies: "",
+    location: "",
+    tags: ["Spiritual/Gospel"],
+    notes: "Sample-filled from the folio cover. Sidebar categories on the cover should not all become tags automatically."
+  });
+}
+
+function applyOcrHeuristics(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const lower = text.toLowerCase();
+  const data = getFormData();
+
+  const skip = /^(faber|alfred|choral|singles|series|american songbook|broadway|movies|christmas|folk|world|pop|words and music|arranged by)$/i;
+  const possibleTitle = lines.find(l => l.length > 3 && l.length < 80 && !skip.test(l) && !/^(sab|satb|ssa|sa|ttb|tb|unison)\b/i.test(l));
+  if (!data.title && possibleTitle) data.title = titleCaseish(possibleTitle);
+
+  const voicingMatch = text.match(/\b(SATB|SAB|SSA|SA|TTB|TTBB|TB|Unison)\b/i);
+  if (!data.voicing && voicingMatch) data.voicing = voicingMatch[1].toUpperCase() === "UNISON" ? "Unison" : voicingMatch[1].toUpperCase();
+
+  if (!data.accompaniment && /\bpiano\b/i.test(text)) data.accompaniment = "Piano";
+  if (!data.category && /choral\s+octavo/i.test(text)) data.category = "Choral Octavo";
+
+  const arranged = text.match(/arranged\s+by\s+([^\n]+)/i) || text.match(/arr\.\s*by\s+([^\n]+)/i);
+  if (!data.arranger && arranged) data.arranger = cleanPerson(arranged[1]);
+
+  const wordsMusic = text.match(/words\s+and\s+music\s+traditional/i);
+  if (!data.composer && wordsMusic) data.composer = "Traditional";
+
+  const publishers = [];
+  if (/faber/i.test(text)) publishers.push("Faber Music");
+  if (/alfred/i.test(text)) publishers.push("Alfred Music");
+  if (!data.publisher && publishers.length) data.publisher = publishers.join(" / ");
+
+  const tags = [...data.tags];
+  if (/spiritual\s*\/\s*gospel/i.test(text)) tags.push("Spiritual/Gospel");
+  if (/advent/i.test(text)) tags.push("Advent");
+  if (/christmas/i.test(text) && !/spiritual\s*\/\s*gospel/i.test(text)) tags.push("Christmas");
+  data.tags = dedupeTags(tags);
+
+  if (!data.version) {
+    const parts = [];
+    if (data.voicing) parts.push(data.voicing);
+    if (data.category) parts.push(data.category);
+    data.version = parts.join(" ") || "";
   }
 
-  function fillFormFromCurrent(){
-    const { title, version } = getCurrent();
-    const f = $("addForm");
-    f.title.value = title.title || "";
-    f.altTitle.value = title.altTitle || "";
-    f.label.value = version.label || "";
-    f.voicing.value = version.voicing || "";
-    f.accompaniment.value = version.accompaniment || "";
-    f.arranger.value = version.arranger || "";
-    f.composer.value = version.composer || title.composer || "";
-    f.publisher.value = version.publisher || "";
-    f.copies.value = version.copies || "";
-    f.location.value = version.location || "";
-    f.tags.value = (version.tags || []).join(", ");
-    f.notes.value = version.notes || "";
-    showPage("addPage");
+  setFormData(data);
+}
+
+function titleCaseish(s) {
+  if (!s) return "";
+  const cleaned = s.replace(/\s+/g, " ").trim();
+  if (cleaned === cleaned.toUpperCase() || cleaned === cleaned.toLowerCase()) {
+    return cleaned.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
   }
+  return cleaned;
+}
 
-  function addDummyUsage(){
-    const { title } = getCurrent();
-    const today = new Date().toISOString().slice(0,10);
-    title.lastUsed = [today, ...(title.lastUsed || []).filter(d => d !== today)];
-    saveCache(); renderDetail(); renderList();
+function cleanPerson(s) {
+  return (s || "").replace(/[^A-Za-z .'-].*$/, "").replace(/\s+/g, " ").trim();
+}
+
+async function runOcr() {
+  const file = $("photoInput").files[0];
+  if (!file) { alert("Choose or take a photo first."); return; }
+  if (!window.Tesseract) {
+    alert("OCR library did not load. Check internet connection.");
+    return;
   }
-
-  function saveFromForm(event){
-    event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.target).entries());
-    const titleText = data.title.trim();
-    const label = data.label.trim();
-    if(!titleText || !label) return;
-
-    const tags = normalizeTags(data.tags);
-    let title = titles.find(t => t.title.trim().toLowerCase() === titleText.toLowerCase());
-    if(!title){
-      title = {
-        id: uniqueId(slugify(titleText), titles.map(t=>t.id)),
-        title: titleText,
-        altTitle: data.altTitle.trim(),
-        composer: data.composer.trim(),
-        seasons: [],
-        themes: tags,
-        lastUsed: [],
-        versions: []
-      };
-      titles.unshift(title);
-    } else {
-      title.altTitle = data.altTitle.trim() || title.altTitle || "";
-      title.composer = data.composer.trim() || title.composer || "";
-      title.themes = normalizeTags([...(title.themes || []), ...tags]);
-    }
-
-    const version = {
-      id: uniqueId(slugify(`${title.title}-${label}`), title.versions.map(v=>v.id)),
-      label,
-      voicing: data.voicing.trim(),
-      accompaniment: data.accompaniment.trim(),
-      arranger: data.arranger.trim(),
-      composer: data.composer.trim(),
-      publisher: data.publisher.trim(),
-      copies: Number(data.copies || 0),
-      location: data.location.trim(),
-      tags,
-      notes: data.notes.trim(),
-      reviewStatus: "Draft",
-      createdAt: new Date().toISOString()
-    };
-    title.versions.push(version);
-    currentTitleId = title.id;
-    currentVersionId = version.id;
-    saveCache();
-    event.target.reset();
-    render();
-    showPage("detailPage");
+  $("ocrStatus").textContent = "OCR starting...";
+  $("ocrProgress").style.width = "2%";
+  try {
+    const result = await Tesseract.recognize(file, "eng", {
+      logger: m => {
+        if (m.status) $("ocrStatus").textContent = `${m.status} ${m.progress ? Math.round(m.progress*100) + "%" : ""}`;
+        if (m.progress) $("ocrProgress").style.width = Math.round(m.progress*100) + "%";
+      }
+    });
+    const text = result.data.text || "";
+    $("ocrText").value = text;
+    applyOcrHeuristics(text);
+    $("ocrStatus").textContent = "OCR complete. Review the fields before saving.";
+    $("ocrProgress").style.width = "100%";
+  } catch (err) {
+    console.error(err);
+    $("ocrStatus").textContent = "OCR failed. You can still type the fields manually.";
   }
+}
 
-  function importSpiritualMedley(){
-    const imported = {
-      title: "Spiritual Medley",
-      altTitle: "",
-      label: "SAB Choral Octavo",
-      voicing: "SAB",
-      accompaniment: "Piano",
-      arranger: "Ben Parry",
-      composer: "Traditional",
-      publisher: "Faber Music / Alfred Music",
-      copies: 0,
-      location: "Needs location",
-      tags: "Spiritual/Gospel, SAB",
-      notes: "Dummy import from sample folio cover. Review before marking complete."
-    };
-    const fakeEvent = { preventDefault(){}, target: $("addForm") };
-    Object.entries(imported).forEach(([key, value]) => { if(fakeEvent.target[key]) fakeEvent.target[key].value = value; });
-    saveFromForm(fakeEvent);
-  }
+function handlePhoto() {
+  const file = $("photoInput").files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    currentImageData = reader.result;
+    $("thumbButton").innerHTML = `<img class="thumb" src="${currentImageData}" alt="Captured thumbnail">`;
+  };
+  reader.readAsDataURL(file);
+}
 
-  function prefillSample(){
-    const f = $("addForm");
-    f.title.value = "Spiritual Medley";
-    f.label.value = "SAB Choral Octavo";
-    f.voicing.value = "SAB";
-    f.accompaniment.value = "Piano";
-    f.arranger.value = "Ben Parry";
-    f.composer.value = "Traditional";
-    f.publisher.value = "Faber Music / Alfred Music";
-    f.copies.value = "0";
-    f.location.value = "Needs location";
-    f.tags.value = "Spiritual/Gospel, SAB, spiritual/gospel";
-    f.notes.value = "Notice duplicate tag text: save should normalize/dedupe this.";
-  }
+function openImage(src) {
+  $("fullImage").src = src;
+  $("imageModal").classList.add("show");
+}
 
-  function exportCache(){
-    const blob = new Blob([JSON.stringify(titles, null, 2)], {type:"application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "canticle-cabinet-local-cache-export.json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 500);
-  }
+function exportJson() {
+  const blob = new Blob([JSON.stringify(catalog, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "canticle-cabinet-local-cache-export.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-  function uniqueId(base, existing){
-    let id = base; let i = 2;
-    while(existing.includes(id)){ id = `${base}-${i++}`; }
-    return id;
-  }
-
-  function escapeHtml(value){
-    return String(value ?? "").replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  }
-
-  function render(){ renderList(); renderDetail(); }
-
-  document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => showPage(tab.dataset.page)));
-  $("backBtn").addEventListener("click", () => showPage("libraryPage"));
-  $("searchInput").addEventListener("input", renderList);
-  $("clearSearch").addEventListener("click", () => { $("searchInput").value = ""; renderList(); $("searchInput").focus(); });
-  $("addForm").addEventListener("submit", saveFromForm);
-  $("sampleImportBtn").addEventListener("click", importSpiritualMedley);
-  $("resetBtn").addEventListener("click", () => { if(confirm("Reset this phone/browser demo cache back to sample data?")) resetCache(); });
-  $("exportBtn").addEventListener("click", exportCache);
-  $("prefillBtn").addEventListener("click", prefillSample);
-  $("closeModal").addEventListener("click", () => $("imageModal").classList.remove("visible"));
-  $("imageModal").addEventListener("click", e => { if(e.target.id === "imageModal") $("imageModal").classList.remove("visible"); });
-
-  render();
-})();
+$("libraryTab").addEventListener("click", () => { showPage("library"); renderList(); });
+$("addTab").addEventListener("click", () => showPage("add"));
+$("backToLibrary").addEventListener("click", () => { showPage("library"); renderList(); });
+$("searchInput").addEventListener("input", renderList);
+$("clearSearch").addEventListener("click", () => { $("searchInput").value = ""; renderList(); });
+$("photoInput").addEventListener("change", handlePhoto);
+$("thumbButton").addEventListener("click", () => { if (currentImageData) openImage(currentImageData); });
+$("closeImage").addEventListener("click", () => $("imageModal").classList.remove("show"));
+$("imageModal").addEventListener("click", e => { if (e.target.id === "imageModal") $("imageModal").classList.remove("show"); });
+$("runOcr").addEventListener("click", runOcr);
+$("fillSample").addEventListener("click", fillSample);
+$("clearForm").addEventListener("click", clearForm);
+$("saveRecord").addEventListener("click", saveForm);
+$("exportJson").addEventListener("click", exportJson);
+$("resetCache").addEventListener("click", () => {
+  if (!confirm("Reset local demo cache to sample data?")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  catalog = loadCatalog();
+  selectedTitleId = catalog[0]?.id;
+  selectedVersionId = catalog[0]?.versions?.[0]?.id;
+  renderList();
+  clearForm();
+  showPage("library");
+});
+renderList();
 </script>
 </body>
 </html>
