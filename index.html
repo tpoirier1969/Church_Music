@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.4</title>
+<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.5</title>
 <meta name="theme-color" content="#fff1b8">
 <meta name="apple-mobile-web-app-title" content="Canticle Cabinet">
 <meta name="application-name" content="Canticle Cabinet">
@@ -95,7 +95,7 @@ textarea{min-height:86px; resize:vertical}
         </div>
         <div class="icon-wrap">
           <div class='icon' style='display:grid;place-items:center;background:#ffe88a;font-size:38px'>🌻</div>
-          <div class="version">v0.2.4 OCR demo</div>
+          <div class="version">v0.2.5 OCR demo</div>
         </div>
       </div>
       <div class="tabs">
@@ -231,8 +231,8 @@ textarea{min-height:86px; resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-const VERSION = "v0.2.4";
-const BUILD_ID = "canticle-cabinet-v0.2.4-b2026-06-02";
+const VERSION = "v0.2.5";
+const BUILD_ID = "canticle-cabinet-v0.2.5-b2026-06-02";
 const BUILD_STORAGE_KEY = "canticleCabinetBuildSeen";
 const STORAGE_KEY = "canticleCabinetLocalCache_v021";
 
@@ -495,7 +495,7 @@ function saveForm() {
 function fillSample() {
   setFormData({
     title: "Spiritual Medley",
-    version: "SAB Choral Octavo",
+    version: "SAB with Piano",
     voicing: "SAB",
     accompaniment: "Piano",
     arranger: "Ben Parry",
@@ -505,20 +505,32 @@ function fillSample() {
     copies: "",
     location: "",
     tags: ["Spiritual/Gospel"],
-    notes: "Sample-filled from the folio cover. Sidebar categories on the cover should not all become tags automatically."
+    notes: "Sample-filled from the folio cover. Sidebar categories on the cover should not all become tags automatically. Category/format is Choral Octavo; setting label is SAB with Piano."
   });
 }
 
 function applyOcrHeuristics(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const lower = text.toLowerCase();
   const data = getFormData();
+  const warnings = [];
 
-  const skip = /^(faber|alfred|choral|singles|series|american songbook|broadway|movies|christmas|folk|world|pop|words and music|arranged by)$/i;
-  const possibleTitle = lines.find(l => l.length > 3 && l.length < 80 && !skip.test(l) && !/^(sab|satb|ssa|sa|ttb|tb|unison)\b/i.test(l));
-  if (!data.title && possibleTitle) data.title = titleCaseish(possibleTitle);
+  const skip = /^(faber|alfred|choral|octavo|choral octavo|singles|series|faber choral singles|american songbook|broadway|movies|christmas|folk|world|pop|words and music|words & music|arranged by|arr\. by|sopranos|altos|basses|tenors)$/i;
+  const titleCandidates = lines
+    .filter(l => l.length >= 4 && l.length <= 72)
+    .filter(l => !skip.test(l))
+    .filter(l => !/^(sab|satb|ssa|sa|ttb|ttbb|tb|unison)\b/i.test(l))
+    .filter(l => !/\b(am|pm)\b/i.test(l))
+    .filter(l => !/^\d{1,2}[:.]\d{2}/.test(l))
+    .filter(l => !isLikelyGarbageTitle(l));
 
-  const voicingMatch = text.match(/\b(SATB|SAB|SSA|SA|TTB|TTBB|TB|Unison)\b/i);
+  const titleCandidate = chooseBestTitleCandidate(titleCandidates);
+  if (!data.title && titleCandidate) {
+    data.title = titleCaseish(titleCandidate);
+  } else if (!data.title) {
+    warnings.push("OCR did not find a trustworthy title. Please enter the title manually.");
+  }
+
+  const voicingMatch = text.match(/\b(SATB|SAB|SSA|SSAA|SA|TTB|TTBB|TB|Unison)\b/i);
   if (!data.voicing && voicingMatch) data.voicing = voicingMatch[1].toUpperCase() === "UNISON" ? "Unison" : voicingMatch[1].toUpperCase();
 
   if (!data.accompaniment && /\bpiano\b/i.test(text)) data.accompaniment = "Piano";
@@ -527,7 +539,7 @@ function applyOcrHeuristics(text) {
   const arranged = text.match(/arranged\s+by\s+([^\n]+)/i) || text.match(/arr\.\s*by\s+([^\n]+)/i);
   if (!data.arranger && arranged) data.arranger = cleanPerson(arranged[1]);
 
-  const wordsMusic = text.match(/words\s+and\s+music\s+traditional/i);
+  const wordsMusic = text.match(/words\s+(?:and|&)\s+music\s+traditional/i);
   if (!data.composer && wordsMusic) data.composer = "Traditional";
 
   const publishers = [];
@@ -538,17 +550,69 @@ function applyOcrHeuristics(text) {
   const tags = [...data.tags];
   if (/spiritual\s*\/\s*gospel/i.test(text)) tags.push("Spiritual/Gospel");
   if (/advent/i.test(text)) tags.push("Advent");
+  // Do not blindly tag Christmas when the cover only shows it as a sidebar category near Spiritual/Gospel.
   if (/christmas/i.test(text) && !/spiritual\s*\/\s*gospel/i.test(text)) tags.push("Christmas");
   data.tags = dedupeTags(tags);
 
   if (!data.version) {
-    const parts = [];
-    if (data.voicing) parts.push(data.voicing);
-    if (data.category) parts.push(data.category);
-    data.version = parts.join(" ") || "";
+    data.version = buildSettingLabel(data.voicing, data.accompaniment);
   }
 
   setFormData(data);
+  if (warnings.length) {
+    $("ocrStatus").textContent = warnings.join(" ") + " Other fields were filled only when they looked safe.";
+  }
+}
+
+function buildSettingLabel(voicing, accompaniment) {
+  const v = (voicing || "").trim();
+  const a = (accompaniment || "").trim();
+  if (v && a) return `${v} with ${a}`;
+  if (v) return v;
+  if (a) return `With ${a}`;
+  return "";
+}
+
+function chooseBestTitleCandidate(candidates) {
+  if (!candidates.length) return "";
+  return candidates
+    .map(line => ({ line, score: scoreTitleCandidate(line) }))
+    .filter(item => item.score >= 3)
+    .sort((a, b) => b.score - a.score)[0]?.line || "";
+}
+
+function scoreTitleCandidate(line) {
+  const s = line.trim();
+  let score = 0;
+  const letters = (s.match(/[A-Za-z]/g) || []).length;
+  const words = (s.match(/[A-Za-z][A-Za-z'’-]+/g) || []).length;
+  const badChars = (s.match(/[^A-Za-z0-9\s,'’&:!?.\/-]/g) || []).length;
+  const digits = (s.match(/\d/g) || []).length;
+  if (letters >= 8) score += 2;
+  if (words >= 2) score += 2;
+  if (/\b(of|the|and|mine|medley|savior|jesus|light|spiritual)\b/i.test(s)) score += 2;
+  if (s === s.toUpperCase() && words >= 2) score += 1;
+  if (digits > 0) score -= digits;
+  if (badChars > 0) score -= badChars * 2;
+  if (/^\d/.test(s)) score -= 3;
+  if (/\b(wi|wl|fe|lte|5g|am|pm)\b/i.test(s)) score -= 2;
+  if (/^.{1,8}$/.test(s)) score -= 2;
+  return score;
+}
+
+function isLikelyGarbageTitle(line) {
+  const s = line.trim();
+  if (!s) return true;
+  if (/^\d{1,2}[:.]\d{2}/.test(s)) return true;
+  if (/\b(wi|wl|fe|lte|5g|battery|carrier)\b/i.test(s) && s.length < 24) return true;
+  const letters = (s.match(/[A-Za-z]/g) || []).length;
+  const digits = (s.match(/\d/g) || []).length;
+  const symbols = (s.match(/[^A-Za-z0-9\s,'’&:!?.\/-]/g) || []).length;
+  if (letters < 4) return true;
+  if (digits >= letters) return true;
+  if (symbols > 1) return true;
+  if (s.split(/\s+/).length <= 2 && /\d/.test(s)) return true;
+  return false;
 }
 
 function titleCaseish(s) {
