@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.1</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.4</title>
 <meta name="theme-color" content="#fff1b8">
 <meta name="apple-mobile-web-app-title" content="Canticle Cabinet">
 <meta name="application-name" content="Canticle Cabinet">
@@ -73,6 +76,12 @@ textarea{min-height:86px; resize:vertical}
 .modal-img{max-width:100%; height:auto; display:block; border-radius:18px}
 .footer{font-size:11px; color:var(--muted); text-align:center; padding:10px 14px 16px}
 .warn{background:#fff8d0; border-color:#fff1a0}
+
+.file-input-hidden{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+.file-picker-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.file-picker-grid .btn{width:100%;min-height:48px;text-align:center;font-size:14px;text-transform:uppercase;letter-spacing:.02em}
+@media(min-width:520px){.file-picker-grid{grid-template-columns:1fr 1fr}}
+
 </style>
 </head>
 <body>
@@ -86,7 +95,7 @@ textarea{min-height:86px; resize:vertical}
         </div>
         <div class="icon-wrap">
           <div class='icon' style='display:grid;place-items:center;background:#ffe88a;font-size:38px'>🌻</div>
-          <div class="version">v0.2.1 OCR demo</div>
+          <div class="version">v0.2.4 OCR demo</div>
         </div>
       </div>
       <div class="tabs">
@@ -116,13 +125,21 @@ textarea{min-height:86px; resize:vertical}
         <div class="card warn">
           <strong>Local test only.</strong>
           <div class="small">Records save to this phone/browser cache. They do not go to Supabase or Google Drive yet. OCR uses Tesseract.js from a CDN, so this demo needs internet for OCR.</div>
+          <div class="actions">
+            <button id="forceRefresh" class="btn" type="button">Force refresh / clear test cache</button>
+          </div>
         </div>
 
         <div class="card">
           <div class="grid two">
             <div>
-              <label for="photoInput">Photo / OCR test</label>
-              <input id="photoInput" type="file" accept="image/*" capture="environment">
+              <label>Photo / OCR test</label>
+              <div class="file-picker-grid">
+                <button id="chooseLibraryPhoto" class="btn primary" type="button">Choose photo from library</button>
+                <button id="takeNewPhoto" class="btn" type="button">Take new photo</button>
+              </div>
+              <input id="photoLibraryInput" class="file-input-hidden" type="file" accept="image/*">
+              <input id="photoCameraInput" class="file-input-hidden" type="file" accept="image/*" capture="environment">
             </div>
             <div>
               <label>Image preview</label>
@@ -201,7 +218,7 @@ textarea{min-height:86px; resize:vertical}
         </div>
       </section>
     </main>
-    <div class="footer">Canticle Cabinet local cache/OCR demo. This is a workflow test, not the live database.</div>
+    <div class="footer">Canticle Cabinet local cache/OCR demo. This is a workflow test, not the live database. Build URL auto-busts with a version token for iPhone shortcut refreshes. Photo library and camera are separate buttons for iOS testing.</div>
   </div>
 </div>
 
@@ -214,8 +231,33 @@ textarea{min-height:86px; resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-const VERSION = "v0.2.1";
+const VERSION = "v0.2.4";
+const BUILD_ID = "canticle-cabinet-v0.2.4-b2026-06-02";
+const BUILD_STORAGE_KEY = "canticleCabinetBuildSeen";
 const STORAGE_KEY = "canticleCabinetLocalCache_v021";
+
+function ensureFreshBuildUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get("cv");
+    const seen = localStorage.getItem(BUILD_STORAGE_KEY);
+    if (seen !== BUILD_ID) {
+      localStorage.setItem(BUILD_STORAGE_KEY, BUILD_ID);
+    }
+    if (current !== BUILD_ID) {
+      url.searchParams.set("cv", BUILD_ID);
+      window.location.replace(url.toString());
+      return true;
+    }
+  } catch (e) {
+    console.warn("Cache-buster check failed", e);
+  }
+  return false;
+}
+
+if (ensureFreshBuildUrl()) {
+  throw new Error("Redirecting to cache-busted build URL");
+}
 const $ = (id) => document.getElementById(id);
 
 const seedData = [
@@ -243,6 +285,7 @@ let catalog = loadCatalog();
 let selectedTitleId = catalog[0]?.id || null;
 let selectedVersionId = catalog[0]?.versions?.[0]?.id || null;
 let currentImageData = null;
+let selectedOcrFile = null;
 
 function uid(prefix) {
   return prefix + "-" + Math.random().toString(36).slice(2,9) + "-" + Date.now().toString(36);
@@ -405,9 +448,11 @@ function clearForm() {
   setFormData({});
   $("ocrText").value = "";
   currentImageData = null;
+  selectedOcrFile = null;
   $("thumbButton").textContent = "No image yet";
-  $("photoInput").value = "";
-  $("ocrStatus").textContent = "Choose/take a photo, then run OCR. You can also type fields manually.";
+  $("photoLibraryInput").value = "";
+  $("photoCameraInput").value = "";
+  $("ocrStatus").textContent = "Choose or take a photo, then run OCR. You can also type fields manually.";
   $("ocrProgress").style.width = "0%";
 }
 
@@ -520,7 +565,7 @@ function cleanPerson(s) {
 }
 
 async function runOcr() {
-  const file = $("photoInput").files[0];
+  const file = selectedOcrFile;
   if (!file) { alert("Choose or take a photo first."); return; }
   if (!window.Tesseract) {
     alert("OCR library did not load. Check internet connection.");
@@ -546,13 +591,15 @@ async function runOcr() {
   }
 }
 
-function handlePhoto() {
-  const file = $("photoInput").files[0];
+function handlePhoto(event) {
+  const file = event?.target?.files?.[0];
   if (!file) return;
+  selectedOcrFile = file;
   const reader = new FileReader();
   reader.onload = () => {
     currentImageData = reader.result;
     $("thumbButton").innerHTML = `<img class="thumb" src="${currentImageData}" alt="Captured thumbnail">`;
+    $("ocrStatus").textContent = `Selected: ${file.name || "photo"}. Run OCR or type fields manually.`;
   };
   reader.readAsDataURL(file);
 }
@@ -577,7 +624,10 @@ $("addTab").addEventListener("click", () => showPage("add"));
 $("backToLibrary").addEventListener("click", () => { showPage("library"); renderList(); });
 $("searchInput").addEventListener("input", renderList);
 $("clearSearch").addEventListener("click", () => { $("searchInput").value = ""; renderList(); });
-$("photoInput").addEventListener("change", handlePhoto);
+$("chooseLibraryPhoto").addEventListener("click", () => $("photoLibraryInput").click());
+$("takeNewPhoto").addEventListener("click", () => $("photoCameraInput").click());
+$("photoLibraryInput").addEventListener("change", handlePhoto);
+$("photoCameraInput").addEventListener("change", handlePhoto);
 $("thumbButton").addEventListener("click", () => { if (currentImageData) openImage(currentImageData); });
 $("closeImage").addEventListener("click", () => $("imageModal").classList.remove("show"));
 $("imageModal").addEventListener("click", e => { if (e.target.id === "imageModal") $("imageModal").classList.remove("show"); });
@@ -595,6 +645,16 @@ $("resetCache").addEventListener("click", () => {
   renderList();
   clearForm();
   showPage("library");
+});
+
+$("forceRefresh").addEventListener("click", () => {
+  if (!confirm("Clear local demo records and reload with a fresh cache-buster?")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(BUILD_STORAGE_KEY);
+  sessionStorage.clear();
+  const url = new URL(window.location.href);
+  url.searchParams.set("cv", BUILD_ID + "-manual-" + Date.now());
+  window.location.replace(url.toString());
 });
 renderList();
 </script>
