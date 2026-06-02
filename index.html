@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.5</title>
+<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.6</title>
 <meta name="theme-color" content="#fff1b8">
 <meta name="apple-mobile-web-app-title" content="Canticle Cabinet">
 <meta name="application-name" content="Canticle Cabinet">
@@ -95,7 +95,7 @@ textarea{min-height:86px; resize:vertical}
         </div>
         <div class="icon-wrap">
           <div class='icon' style='display:grid;place-items:center;background:#ffe88a;font-size:38px'>🌻</div>
-          <div class="version">v0.2.5 OCR demo</div>
+          <div class="version">v0.2.6 OCR demo</div>
         </div>
       </div>
       <div class="tabs">
@@ -231,8 +231,8 @@ textarea{min-height:86px; resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-const VERSION = "v0.2.5";
-const BUILD_ID = "canticle-cabinet-v0.2.5-b2026-06-02";
+const VERSION = "v0.2.6";
+const BUILD_ID = "canticle-cabinet-v0.2.6-b2026-06-02b";
 const BUILD_STORAGE_KEY = "canticleCabinetBuildSeen";
 const STORAGE_KEY = "canticleCabinetLocalCache_v021";
 
@@ -509,37 +509,29 @@ function fillSample() {
   });
 }
 
+
 function applyOcrHeuristics(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const data = getFormData();
-  const warnings = [];
 
-  const skip = /^(faber|alfred|choral|octavo|choral octavo|singles|series|faber choral singles|american songbook|broadway|movies|christmas|folk|world|pop|words and music|words & music|arranged by|arr\. by|sopranos|altos|basses|tenors)$/i;
-  const titleCandidates = lines
-    .filter(l => l.length >= 4 && l.length <= 72)
-    .filter(l => !skip.test(l))
-    .filter(l => !/^(sab|satb|ssa|sa|ttb|ttbb|tb|unison)\b/i.test(l))
-    .filter(l => !/\b(am|pm)\b/i.test(l))
-    .filter(l => !/^\d{1,2}[:.]\d{2}/.test(l))
-    .filter(l => !isLikelyGarbageTitle(l));
-
-  const titleCandidate = chooseBestTitleCandidate(titleCandidates);
-  if (!data.title && titleCandidate) {
-    data.title = titleCaseish(titleCandidate);
+  const possibleTitle = chooseBestTitleCandidate(lines, text);
+  if (!data.title && possibleTitle) {
+    data.title = titleCaseish(possibleTitle);
   } else if (!data.title) {
-    warnings.push("OCR did not find a trustworthy title. Please enter the title manually.");
+    $("ocrStatus").textContent = "OCR ran, but the title did not look trustworthy. Please enter the title manually.";
   }
 
-  const voicingMatch = text.match(/\b(SATB|SAB|SSA|SSAA|SA|TTB|TTBB|TB|Unison)\b/i);
+  const voicingMatch = text.match(/\b(SATB|SAB|SSA|SA|TTB|TTBB|TB|Unison)\b/i);
   if (!data.voicing && voicingMatch) data.voicing = voicingMatch[1].toUpperCase() === "UNISON" ? "Unison" : voicingMatch[1].toUpperCase();
 
   if (!data.accompaniment && /\bpiano\b/i.test(text)) data.accompaniment = "Piano";
+  if (!data.accompaniment && /\borgan\b/i.test(text)) data.accompaniment = "Organ";
   if (!data.category && /choral\s+octavo/i.test(text)) data.category = "Choral Octavo";
 
-  const arranged = text.match(/arranged\s+by\s+([^\n]+)/i) || text.match(/arr\.\s*by\s+([^\n]+)/i);
+  const arranged = text.match(/arranged\s+by\s+([^\n]+)/i) || text.match(/arr\.?\s*by\s+([^\n]+)/i);
   if (!data.arranger && arranged) data.arranger = cleanPerson(arranged[1]);
 
-  const wordsMusic = text.match(/words\s+(?:and|&)\s+music\s+traditional/i);
+  const wordsMusic = text.match(/words\s+and\s+music\s+traditional/i);
   if (!data.composer && wordsMusic) data.composer = "Traditional";
 
   const publishers = [];
@@ -550,69 +542,84 @@ function applyOcrHeuristics(text) {
   const tags = [...data.tags];
   if (/spiritual\s*\/\s*gospel/i.test(text)) tags.push("Spiritual/Gospel");
   if (/advent/i.test(text)) tags.push("Advent");
-  // Do not blindly tag Christmas when the cover only shows it as a sidebar category near Spiritual/Gospel.
   if (/christmas/i.test(text) && !/spiritual\s*\/\s*gospel/i.test(text)) tags.push("Christmas");
   data.tags = dedupeTags(tags);
 
   if (!data.version) {
-    data.version = buildSettingLabel(data.voicing, data.accompaniment);
+    if (data.voicing && data.accompaniment) data.version = data.voicing + " with " + data.accompaniment;
+    else if (data.voicing) data.version = data.voicing;
+    else data.version = "";
   }
 
   setFormData(data);
-  if (warnings.length) {
-    $("ocrStatus").textContent = warnings.join(" ") + " Other fields were filled only when they looked safe.";
-  }
 }
 
-function buildSettingLabel(voicing, accompaniment) {
-  const v = (voicing || "").trim();
-  const a = (accompaniment || "").trim();
-  if (v && a) return `${v} with ${a}`;
-  if (v) return v;
-  if (a) return `With ${a}`;
-  return "";
+function chooseBestTitleCandidate(lines, fullText) {
+  const cleanLines = lines
+    .map(l => l.replace(/[|•·]+/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  // Prefer lines before obvious metadata/format lines, but never use metadata lines as titles.
+  const stopIndex = cleanLines.findIndex(l => /^(voicing|sab|satb|ssa|sa|ttb|ttbb|tb|unison|choral octavo|arranged by|words and music|publisher|faber|alfred)\b/i.test(l));
+  const titleZone = stopIndex > 0 ? cleanLines.slice(0, stopIndex) : cleanLines.slice(0, Math.min(cleanLines.length, 10));
+
+  const candidates = titleZone
+    .filter(isPlausibleTitleLine)
+    .sort((a, b) => titleScore(b) - titleScore(a));
+
+  return candidates[0] || "";
 }
 
-function chooseBestTitleCandidate(candidates) {
-  if (!candidates.length) return "";
-  return candidates
-    .map(line => ({ line, score: scoreTitleCandidate(line) }))
-    .filter(item => item.score >= 3)
-    .sort((a, b) => b.score - a.score)[0]?.line || "";
+function isPlausibleTitleLine(line) {
+  const l = (line || "").trim();
+  if (l.length < 4 || l.length > 70) return false;
+
+  // Reject phone/status/time garbage and OCR crumbs.
+  if (/\b\d{1,2}:\d{2}\b/.test(l)) return false;
+  if (/^[\d\s:;.,|\/\\_-]+$/.test(l)) return false;
+  if (/[A-Za-z]/.test(l) && (l.match(/[A-Za-z]/g) || []).length < 4) return false;
+
+  // Reject lines that are actually voicing/accompaniment/format metadata.
+  if (isVoicingOrAccompanimentLine(l)) return false;
+  if (/^(choral\s+octavo|octavo|score|sheet music|piano|organ|handbells?|publisher|faber|alfred|series|singles)\b/i.test(l)) return false;
+  if (/^(words?\s+and\s+music|music\s+by|words?\s+by|arranged\s+by|arr\.?\s+by|traditional)\b/i.test(l)) return false;
+
+  // Reject sidebar/category list items.
+  if (/^(american songbook|broadway\/?movies?|christmas|folk\/?world|pop|spiritual\/?gospel)$/i.test(l)) return false;
+
+  // Reject mostly symbols/numbers.
+  const alpha = (l.match(/[A-Za-z]/g) || []).length;
+  const nonspace = (l.match(/\S/g) || []).length;
+  if (nonspace && alpha / nonspace < 0.55) return false;
+
+  return true;
 }
 
-function scoreTitleCandidate(line) {
-  const s = line.trim();
-  let score = 0;
-  const letters = (s.match(/[A-Za-z]/g) || []).length;
-  const words = (s.match(/[A-Za-z][A-Za-z'’-]+/g) || []).length;
-  const badChars = (s.match(/[^A-Za-z0-9\s,'’&:!?.\/-]/g) || []).length;
-  const digits = (s.match(/\d/g) || []).length;
-  if (letters >= 8) score += 2;
-  if (words >= 2) score += 2;
-  if (/\b(of|the|and|mine|medley|savior|jesus|light|spiritual)\b/i.test(s)) score += 2;
-  if (s === s.toUpperCase() && words >= 2) score += 1;
-  if (digits > 0) score -= digits;
-  if (badChars > 0) score -= badChars * 2;
-  if (/^\d/.test(s)) score -= 3;
-  if (/\b(wi|wl|fe|lte|5g|am|pm)\b/i.test(s)) score -= 2;
-  if (/^.{1,8}$/.test(s)) score -= 2;
-  return score;
-}
+function isVoicingOrAccompanimentLine(line) {
+  const source = (line || "").trim();
+  if (!source) return false;
 
-function isLikelyGarbageTitle(line) {
-  const s = line.trim();
-  if (!s) return true;
-  if (/^\d{1,2}[:.]\d{2}/.test(s)) return true;
-  if (/\b(wi|wl|fe|lte|5g|battery|carrier)\b/i.test(s) && s.length < 24) return true;
-  const letters = (s.match(/[A-Za-z]/g) || []).length;
-  const digits = (s.match(/\d/g) || []).length;
-  const symbols = (s.match(/[^A-Za-z0-9\s,'’&:!?.\/-]/g) || []).length;
-  if (letters < 4) return true;
-  if (digits >= letters) return true;
-  if (symbols > 1) return true;
-  if (s.split(/\s+/).length <= 2 && /\d/.test(s)) return true;
+  const voicingTokens = "(satb|sab|ssa|sa|ttb|ttbb|tb|unison|two[- ]part|3[-–]5 octave|2[-–]3 octave)";
+  const accompTokens = "(piano|organ|keyboard|handbells?|a cappella|acapella|orchestra|guitar|instrumental)";
+  const formatTokens = "(choral octavo|octavo|score|parts?)";
+
+  if (new RegExp("^" + voicingTokens + "\\s*(and|&|with|/)\\s*" + accompTokens + "$", "i").test(source)) return true;
+  if (new RegExp("^" + voicingTokens + "(\\s+" + formatTokens + ")?$", "i").test(source)) return true;
+  if (new RegExp("^" + accompTokens + "$", "i").test(source)) return true;
+  if (new RegExp("^" + voicingTokens + "\\s+" + accompTokens + "$", "i").test(source)) return true;
   return false;
+}
+
+function titleScore(line) {
+  let score = 0;
+  const l = line.trim();
+  score += Math.min(l.length, 40);
+  if (/\b(of|the|and|my|mine|lord|jesus|medley|song|light|come|thou|savior|spiritual)\b/i.test(l)) score += 12;
+  if (/^[A-Z][A-Za-z'’,-]+(\s+[A-Z][A-Za-z'’,-]+)+/.test(l)) score += 6;
+  if (/[a-z]/.test(l)) score += 4;
+  if (/[0-9]/.test(l)) score -= 18;
+  if (/[|_]/.test(l)) score -= 12;
+  return score;
 }
 
 function titleCaseish(s) {
@@ -647,7 +654,7 @@ async function runOcr() {
     const text = result.data.text || "";
     $("ocrText").value = text;
     applyOcrHeuristics(text);
-    $("ocrStatus").textContent = "OCR complete. Review the fields before saving.";
+    if ($("titleField").value.trim()) { $("ocrStatus").textContent = "OCR complete. Review the fields before saving."; }
     $("ocrProgress").style.width = "100%";
   } catch (err) {
     console.error(err);
