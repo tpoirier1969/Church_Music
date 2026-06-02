@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.6</title>
+<title>Canticle Cabinet — Local Cache + OCR Demo v0.2.7</title>
 <meta name="theme-color" content="#fff1b8">
 <meta name="apple-mobile-web-app-title" content="Canticle Cabinet">
 <meta name="application-name" content="Canticle Cabinet">
@@ -95,7 +95,7 @@ textarea{min-height:86px; resize:vertical}
         </div>
         <div class="icon-wrap">
           <div class='icon' style='display:grid;place-items:center;background:#ffe88a;font-size:38px'>🌻</div>
-          <div class="version">v0.2.6 OCR demo</div>
+          <div class="version">v0.2.7 OCR demo</div>
         </div>
       </div>
       <div class="tabs">
@@ -135,7 +135,7 @@ textarea{min-height:86px; resize:vertical}
             <div>
               <label>Photo / OCR test</label>
               <div class="file-picker-grid">
-                <button id="chooseLibraryPhoto" class="btn primary" type="button">Choose photo from library</button>
+                <button id="chooseLibraryPhoto" class="btn primary" type="button">Pick existing image</button>
                 <button id="takeNewPhoto" class="btn" type="button">Take new photo</button>
               </div>
               <input id="photoLibraryInput" class="file-input-hidden" type="file" accept="image/*">
@@ -151,7 +151,7 @@ textarea{min-height:86px; resize:vertical}
             <button id="fillSample" class="btn" type="button">Fill sample: Spiritual Medley</button>
             <button id="clearForm" class="btn" type="button">Clear form</button>
           </div>
-          <div id="ocrStatus" class="ocr-status">Choose/take a photo, then run OCR. You can also type fields manually.</div>
+          <div id="ocrStatus" class="ocr-status">Pick or take an image, then run OCR. You can also type fields manually.</div>
           <div class="progress"><div id="ocrProgress"></div></div>
         </div>
 
@@ -231,8 +231,8 @@ textarea{min-height:86px; resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-const VERSION = "v0.2.6";
-const BUILD_ID = "canticle-cabinet-v0.2.6-b2026-06-02b";
+const VERSION = "v0.2.7";
+const BUILD_ID = "canticle-cabinet-v0.2.7-b2026-06-02c";
 const BUILD_STORAGE_KEY = "canticleCabinetBuildSeen";
 const STORAGE_KEY = "canticleCabinetLocalCache_v021";
 
